@@ -1,0 +1,2054 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Subitizing Trainer</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            background: #000;
+            color: #fff;
+            font-family: Arial, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            overflow: hidden;
+        }
+        
+        body.light-mode {
+            background: #777;
+        }
+        
+        body.light-mode #dprime-display {
+            background: rgba(255, 255, 255, 0.15);
+            border: none;
+        }
+        
+        body.light-mode .category-stats {
+            background: rgba(255, 255, 255, 0.15);
+            border: none;
+        }
+        
+        body.light-mode .metric-label {
+            color: #000;
+        }
+        
+        body.light-mode .category-name {
+            color: #000;
+        }
+        
+        body.light-mode .category-data {
+            color: #000;
+        }
+        
+        body.light-mode .metric-value {
+            color: #000;
+        }
+        
+        #game-container {
+            width: 100vw;
+            height: 100vh;
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+        }
+        
+        #canvas-area {
+            position: fixed;
+            pointer-events: none;
+        }
+        
+        .shape {
+            position: absolute;
+            transition: all 0.3s ease;
+            pointer-events: none;
+        }
+        
+        #question-area {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 20px;
+            z-index: 10;
+        }
+        
+        #answer-area {
+            position: absolute;
+            bottom: 100px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 72px;
+            font-weight: bold;
+        }
+        
+        .question-content {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 30px;
+        }
+        
+        #score {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            font-size: 24px;
+            color: #fff;
+        }
+        
+        #level-area {
+            position: absolute;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            text-align: center;
+        }
+        
+        #level {
+            font-size: 48px;
+            font-weight: bold;
+            color: #0f0;
+            display: flex;
+            align-items: center;
+            gap: 24px;
+        }
+
+        #level-value {
+            font-size: 48px;
+            font-weight: bold;
+            color: #0f0;
+        }
+
+        #baseline-display {
+            font-size: 48px;
+            font-weight: bold;
+            color: #08f; /* blue */
+            margin-left: 8px;
+            display: inline-block;
+        }
+        
+        #category-mini-stats {
+            font-size: 16px;
+            color: #fff;
+            margin-top: 8px;
+            display: flex;
+            gap: 20px;
+            justify-content: center;
+        }
+        
+        .mini-stat {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .mini-stat-value {
+            color: lime;
+            font-weight: bold;
+            font-size: 16px;
+        }
+
+        /* Unified bias track (shows center + bias marker) */
+        /* Very simple unified bias line: minimal styling */
+        #bias-unified {
+            margin-top: 10px;
+            display: flex;
+            justify-content: center;
+            pointer-events: none;
+        }
+
+        #bias-unified .bias-track {
+            position: relative;
+            width: 220px;
+            height: 2px; /* just a thin horizontal line */
+            background: rgba(255,255,255,0.12); /* subtle thin line */
+        }
+
+        /* thin central marker (correct center) */
+        #bias-unified .center-marker {
+            position: absolute;
+            left: 50%;
+            top: 50%;
+            transform: translate(-50%, -50%);
+            width: 2px;
+            height: 14px;
+            background: #fff;
+            opacity: 0.9;
+        }
+
+        /* thin current-bias marker (same visual weight as center) */
+        #bias-unified .bias-marker {
+            position: absolute;
+            top: 50%;
+            transform: translate(-50%, -50%);
+            width: 2px;
+            height: 14px;
+            background: #fff; /* will be overridden by JS to vibrant color */
+            opacity: 1;
+            transition: left 200ms ease;
+            pointer-events: none;
+        }
+
+        /* recent-bias small faded ticks */
+        #bias-unified .bias-recent {
+            position: absolute;
+            top: 50%;
+            transform: translate(-50%, -50%);
+            width: 2px;
+            height: 14px; /* match center marker height */
+            background: #fff; /* default, will be overridden by JS to reflect sign */
+            opacity: 0.6;
+            pointer-events: none;
+        }
+        
+        #performance-metrics-container {
+            position: absolute;
+            top: 60px;
+            right: 20px;
+            width: 400px;
+        }
+        
+        #settings-btn, #theme-toggle {
+            position: absolute;
+            top: 20px;
+            padding: 10px 20px;
+            background: #333;
+            border: 2px solid #666;
+            color: #fff;
+            font-size: 24px;
+            cursor: pointer;
+            border-radius: 5px;
+            z-index: 1001;
+        }
+        
+        #settings-btn {
+            left: 20px;
+        }
+        
+        #theme-toggle {
+            left: 80px;
+        }
+        
+        #settings-btn:hover, #theme-toggle:hover {
+            background: #444;
+        }
+        
+        #settings-sidebar {
+            position: fixed;
+            top: 0;
+            right: -450px;
+            width: 450px;
+            height: 100vh;
+            background: #1a1a1a;
+            border-left: 3px solid #666;
+            padding: 30px;
+            overflow-y: auto;
+            transition: right 0.3s ease;
+            z-index: 1002;
+        }
+        
+        #settings-sidebar.show {
+            right: 0;
+        }
+        
+        .settings-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+        }
+        
+        .settings-header h2 {
+            font-size: 24px;
+        }
+        
+        #close-settings {
+            background: none;
+            border: none;
+            color: #fff;
+            font-size: 32px;
+            cursor: pointer;
+            padding: 0;
+            width: 40px;
+            height: 40px;
+            line-height: 32px;
+        }
+        
+        #close-settings:hover {
+            color: #0f0;
+        }
+        
+        .setting-group {
+            margin-bottom: 25px;
+            padding-bottom: 20px;
+            border-bottom: 1px solid #333;
+        }
+        
+        .setting-group:last-child {
+            border-bottom: none;
+        }
+        
+        .setting-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-size: 16px;
+            color: #fff;
+        }
+        
+        .setting-group input[type="range"] {
+            width: 100%;
+            margin-bottom: 5px;
+        }
+        
+        .setting-group .value-display {
+            color: #0f0;
+            font-weight: bold;
+        }
+        
+        .checkbox-group {
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+        }
+        
+        .checkbox-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .checkbox-item input[type="checkbox"] {
+            width: 20px;
+            height: 20px;
+            cursor: pointer;
+        }
+        
+        .settings-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            display: none;
+            z-index: 1001;
+        }
+        
+        .settings-overlay.show {
+            display: block;
+        }
+        
+        .feedback-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.5s ease;
+        }
+        
+        .feedback-overlay.correct {
+            background: rgba(0, 255, 0, 0.1);
+        }
+        
+        .feedback-overlay.incorrect {
+            background: rgba(255, 0, 0, 0.1);
+        }
+        
+        .feedback-overlay.timeout {
+            background: rgba(255, 0, 0, 0.1);
+        }
+        
+        .feedback-overlay.show {
+            opacity: 1;
+        }
+        
+        .info-text {
+            color: #666;
+            font-size: 12px;
+            margin-top: 5px;
+        }
+        
+        #dprime-display {
+            background: #222;
+            padding: 15px;
+            border-radius: 5px;
+            margin-top: 10px;
+        }
+        
+        .metric-row {
+            display: flex;
+            justify-content: space-between;
+            margin: 5px 0;
+            font-size: 13px;
+        }
+        
+        .metric-label {
+            color: #888;
+        }
+        
+        .metric-value {
+            color: #fff;
+            font-weight: bold;
+        }
+        
+        .advanced-section {
+            margin-top: 20px;
+            padding: 15px;
+            background: #0a0a0a;
+            border: 1px solid #333;
+            border-radius: 5px;
+        }
+        
+        .advanced-toggle {
+            width: 100%;
+            padding: 10px;
+            background: #333;
+            color: #fff;
+            border: 1px solid #666;
+            cursor: pointer;
+            font-size: 16px;
+            border-radius: 5px;
+            margin-bottom: 15px;
+        }
+        
+        .advanced-toggle:hover {
+            background: #444;
+        }
+        
+        .advanced-content {
+            display: none;
+        }
+        
+        .advanced-content.show {
+            display: block;
+        }
+        
+        .formula-box {
+            background: #000;
+            padding: 10px;
+            border-left: 3px solid #0f0;
+            margin: 10px 0;
+            font-family: monospace;
+            font-size: 12px;
+            color: #0f0;
+        }
+        
+        .explanation {
+            color: #888;
+            font-size: 13px;
+            margin: 10px 0;
+            line-height: 1.5;
+        }
+        
+        .category-stats {
+            background: #0a0a0a;
+            padding: 15px;
+            border-radius: 5px;
+            margin-top: 15px;
+            border: 1px solid #333;
+        }
+        
+        .category-header {
+            color: #fff;
+            font-weight: bold;
+            margin-bottom: 10px;
+            font-size: 14px;
+        }
+        
+        body.light-mode .category-header {
+            color: #000;
+        }
+        
+        .category-row {
+            display: grid;
+            grid-template-columns: 100px 1fr;
+            gap: 10px;
+            margin: 8px 0;
+            font-size: 13px;
+        }
+        
+
+        /* Hide panels button base styles */
+        .hide-panels-btn {
+            margin-top: 12px;
+            padding: 8px 10px;
+            font-size: 14px;
+            background: #333;
+            color: #fff;
+            border: 1px solid #666;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        /* Keep the button positioned to the right side of the performance container */
+        .hide-panels-btn {
+            position: absolute;
+            right: 0;
+            bottom: -44px;
+        }
+        
+        .category-name {
+            color: #888;
+            font-weight: bold;
+        }
+        
+        .category-data {
+            color: #fff;
+        }
+    </style>
+</head>
+<body>
+    <div id="game-container">
+        <button id="settings-btn">⚙</button>
+        <button id="theme-toggle">☀</button>
+        <div id="level-area">
+            <div id="level">L: <span id="level-value">4.00</span> <span id="baseline-display">A: 0.00</span></div>
+            <div id="category-mini-stats">
+                <div class="mini-stat">
+                    <span class="mini-stat-value" id="mini-moved"></span>
+                </div>
+                <div class="mini-stat">
+                    <span class="mini-stat-value" id="mini-color"></span>
+                </div>
+                <div class="mini-stat">
+                    <span class="mini-stat-value" id="mini-shape"></span>
+                </div>
+            </div>
+            <!-- Unified bias bar: shows correct center and user's bias point (based on Response Bias) -->
+            <div id="bias-unified" aria-hidden="false">
+                <div class="bias-track">
+                    <div class="center-marker" title="Correct center"></div>
+                    <div class="bias-marker" id="bias-marker" title="Your bias"></div>
+                </div>
+            </div>
+        </div>
+        <div id="score">Correct: 0</div>
+        <div id="performance-metrics-container">
+            <div id="dprime-display">
+                <div class="metric-row">
+                    <span class="metric-label">Raw → Adjusted → Weighted d':</span>
+                    <span class="metric-value" id="current-dprime">0.00 → 0.00 → 0.00</span>
+                </div>
+                <div class="metric-row">
+                    <span class="metric-label">Baseline (avg 20):</span>
+                    <span class="metric-value" id="baseline-dprime">0.00</span>
+                </div>
+                <div class="metric-row">
+                    <span class="metric-label">Response Bias:</span>
+                    <span class="metric-value" id="bias-value">0.00</span>
+                </div>
+                <div class="metric-row">
+                    <span class="metric-label">Lure Frequency:</span>
+                    <span class="metric-value" id="lure-freq">10%</span>
+                </div>
+                <div class="metric-row">
+                    <span class="metric-label">Trials:</span>
+                    <span class="metric-value" id="trial-count">0</span>
+                </div>
+                <div class="metric-row">
+                    <span class="metric-label">Current Items:</span>
+                    <span class="metric-value" id="current-items">0</span>
+                </div>
+                <div class="metric-row">
+                    <span class="metric-label">Ambiguity Range:</span>
+                    <span class="metric-value" id="ambiguity-range">±2</span>
+                </div>
+            </div>
+            
+            <div class="category-stats">
+                <div class="category-header">Category Breakdown:</div>
+                <div class="category-row">
+                    <span class="category-name">Movement:</span>
+                    <span class="category-data" id="moved-accuracy"></span>
+                </div>
+                <div class="category-row">
+                    <span class="category-name">Color:</span>
+                    <span class="category-data" id="color-accuracy"></span>
+                </div>
+                <div class="category-row">
+                    <span class="category-name">Shape:</span>
+                    <span class="category-data" id="shape-accuracy"></span>
+                </div>
+            </div>
+            <button id="hide-panels-btn" class="hide-panels-btn">Hide Panels</button>
+        </div>
+        <div id="canvas-area"></div>
+        <div id="question-area"></div>
+        <div id="answer-area"></div>
+    </div>
+    
+    <div class="settings-overlay" id="settings-overlay"></div>
+    
+    <div id="settings-sidebar">
+        <div class="settings-header">
+            <h2>Settings</h2>
+            <button id="close-settings">×</button>
+        </div>
+        
+        <div class="setting-group">
+            <label>Starting Level: <span class="value-display" id="shapes-value">4.00</span></label>
+            <input type="range" id="shapes-slider" min="100" max="999" value="400" step="1">
+            <div class="info-text">
+                Level represents difficulty (1.00-9.99), NOT number of items.<br>
+                <strong>Level affects:</strong> Total items shown, distractor sophistication, lure frequency<br>
+                <strong>Answer is always uniformly random from 1-9</strong>
+            </div>
+        </div>
+        
+        <div class="setting-group">
+            <div class="checkbox-item" style="margin-bottom: 10px;">
+                <input type="checkbox" id="fixed-total">
+                <label for="fixed-total">Fixed Total Items</label>
+            </div>
+            <label>Total Items: <span class="value-display" id="total-items-value">18</span></label>
+            <input type="range" id="total-items-slider" min="4" max="50" value="18" disabled>
+            <div class="info-text">
+                <strong>Fixed ON:</strong> Use manual total setting<br>
+                <strong>Fixed OFF (recommended):</strong> Total scales with level<br>
+                • Level 1: ~10-12 items<br>
+                • Level 5: ~18-22 items<br>
+                • Level 9: ~30-45 items<br>
+                Answer is always 1-9 regardless of total.
+            </div>
+        </div>
+        
+        <div class="setting-group">
+            <label>Display Time: <span class="value-display" id="display-time-value">400ms</span></label>
+            <input type="range" id="display-time-slider" min="200" max="3000" step="100" value="400">
+            <div class="info-text">How long shapes are visible</div>
+        </div>
+        
+        <div class="setting-group">
+            <label>Answer Time Limit: <span class="value-display" id="answer-time-value">3.0s</span></label>
+            <input type="range" id="answer-time-slider" min="1000" max="10000" step="500" value="3000">
+            <div class="info-text">Time limit to respond</div>
+        </div>
+        
+        <div class="setting-group">
+            <label>Active Categories:</label>
+            <div class="checkbox-group">
+                <div class="checkbox-item">
+                    <input type="checkbox" id="category-color" checked>
+                    <label for="category-color">Color</label>
+                </div>
+                <div class="checkbox-item">
+                    <input type="checkbox" id="category-shape" checked>
+                    <label for="category-shape">Shape</label>
+                </div>
+                <div class="checkbox-item">
+                    <input type="checkbox" id="category-movement" checked>
+                    <label for="category-movement">Movement</label>
+                </div>
+            </div>
+        </div>
+        
+        <button class="advanced-toggle" id="advanced-toggle">▼ Advanced: Distribution & Algorithms</button>
+        <div class="advanced-content" id="advanced-content">
+            <div class="setting-group">
+                <label style="margin-bottom: 15px;"><strong>System Design Philosophy:</strong></label>
+                <div class="formula-box" style="border-color: #0af;">
+<strong>PERFECT SYSTEM:</strong>
+
+Answer: Always uniform random 1-9
+  ↓
+Level (1.00-9.99) controls DIFFICULTY:
+  • Total items (more = harder search)
+  • Distractor sophistication (tighter = harder)
+  • Lure frequency (more = more interference)
+  ↓
+Scoring: Proximity + Category Weighting
+  • Exact: 1.0 score (100%)
+  • Off by 1: ~0.5 score (50%)
+  • Off by 2: ~0.25 score (25%)
+  • Off by 3+: declining curve
+  • >50% off: 0 score
+  • Movement: 1x weight (easiest)
+  • Color: 2x weight (medium)
+  • Shape: 4x weight (hardest)
+  ↓
+D'prime tracking:
+  Raw → Set-size adjusted → Category weighted
+  • Adjusted for cognitive load
+  • Weighted by category difficulty
+  • Compared to personal baseline
+  ↓
+Result: Fair difficulty scaling
+  Same accuracy at level 9 requires
+  more skill than at level 1
+  Shape errors penalized 4x more than movement
+                </div>
+            </div>
+            
+            <div class="setting-group">
+                <label>Cognitive Load Factor: <span class="value-display" id="load-factor-value">0.050</span></label>
+                <input type="range" id="load-factor-slider" min="0" max="100" value="50" step="1">
+                <div class="formula-box">
+                    adjusted_d' = base_d' × (1 + (total - 4) × factor)
+                </div>
+                <div class="explanation">
+                    <strong>Why this matters:</strong> Same answer (e.g., 5) is harder with more items.<br>
+                    Finding 5 red shapes among 12 items vs among 30 items requires different cognitive load.<br>
+                    This factor accounts for increased visual search and working memory demands.<br>
+                    <strong>At factor=0.05:</strong><br>
+                    • 12 items: 1.4× baseline difficulty<br>
+                    • 20 items: 1.8× baseline difficulty<br>
+                    • 30 items: 2.3× baseline difficulty<br>
+                    Your d'prime is adjusted so performance is fairly compared across levels.
+                </div>
+            </div>
+            
+            <div class="setting-group">
+                <label>Target Clustering: <span class="value-display" id="target-cluster-value">70%</span></label>
+                <input type="range" id="target-cluster-slider" min="0" max="100" value="70">
+                <div class="explanation">
+                    Probability that target items cluster their non-target properties.
+                    E.g., if asking "How many blue?", this % of blue shapes will share the same shape type.
+                    Higher = more ambiguity about which property will be tested.
+                    <strong>Combined with distractor clustering, this ensures you cannot infer the answer from distributions.</strong>
+                </div>
+            </div>
+            
+            <div class="setting-group">
+                <label>Distractor Clusters: <span class="value-display" id="distractor-clusters-value">3</span></label>
+                <input type="range" id="distractor-clusters-slider" min="2" max="5" value="3">
+                <div class="explanation">
+                    Number of groups distractors are divided into.
+                    Each group shares one non-target property value.
+                    Cluster sizes are determined by level sophistication:<br>
+                    • Level 1: clusters within ±2 of answer<br>
+                    • Level 5: clusters within ±4 of answer<br>
+                    • Level 9: clusters within ±6 of answer<br>
+                    More clusters = more property values to track = harder.<br>
+                    <strong>Example at Level 5, answer=5:</strong> Clusters might be 6, 4, 7 - all plausible answers.
+                </div>
+            </div>
+            
+            <div class="setting-group">
+                <label style="margin-bottom: 15px;"><strong>Distribution Algorithm:</strong></label>
+                <div class="formula-box">
+1. Determine total items from level:
+   - Level 1: 10-12 items
+   - Level 5: 18-22 items  
+   - Level 9: 30-45 items
+   - (Or use fixed setting)
+   
+2. Pick answer: ALWAYS uniform random 1-9
+
+3. Calculate sophistication from level:
+   - ambiguityRange = 2 to 6 (scales with level)
+   - clusterTightness = decimal progress
+   
+4. Pick target property (color/shape/movement)
+
+5. Generate [answer] target items:
+   - [cluster%] share non-target property
+   - Creates ambiguity about what will be asked
+   
+6. Generate [total - answer] distractors:
+   - Split into [n] clusters
+   - Size within [answer ± ambiguityRange]
+   - Tightness controls similarity to answer
+   - Apply lures to [lure%] of distractors
+   
+7. Result: Answer always 1-9, difficulty from:
+   - More items = harder visual search
+   - Tighter clusters = harder discrimination
+   - More lures = more interference
+                </div>
+            </div>
+            
+            <div class="setting-group">
+                <label style="margin-bottom: 15px;"><strong>Lure System:</strong></label>
+                <div class="formula-box">
+lure_frequency = 10% + (decimal_progress × 15%)
+- At level X.00: 10% lures
+- At level X.99: 25% lures
+
+Lure types:
+- Color: adjacent in palette (cyan↔blue)
+- Shape: adjacent complexity (square↔circle)
+- Movement: n/a (binary property)
+
+N-1 lures: 80% (one step away)
+N+1 lures: 20% (for future expansion)
+                </div>
+                <div class="explanation">
+                    Lures are "near-misses" that look similar to targets.
+                    They increase interference without being random noise.
+                    Frequency scales with your skill (decimal progress).
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="feedback-overlay" id="feedback"></div>
+
+    <script>
+        const colors = ['cyan', 'magenta', 'lime', 'yellow', 'blue', 'red'];
+        const shapes = ['square', 'triangle', 'hexagon', 'circle'];
+        const categories = ['color', 'shape', 'moved'];
+        
+        let currentRound = {
+            items: [],
+            targetCategory: '',
+            targetValue: '',
+            correctAnswer: 0
+        };
+        
+        let score = 0;
+        let exactCorrect = 0;
+        let microLevel = 4.00;
+        let isAnswering = false;
+        let answerTimeout = null;
+        let isPaused = false;
+        let pausedState = null;
+        
+        // Performance tracking
+        let performanceHistory = [];
+        let sessionHistory = [];
+        const MAX_HISTORY = 20;
+        
+        let stats = {
+            hits: 0,
+            misses: 0,
+            falseAlarms: 0,
+            correctRejections: 0,
+            totalTrials: 0,
+            signedErrorSum: 0,
+            signalTrials: 0,
+            noiseTrials: 0,
+            byCategory: {
+                color: { trials: 0, exactCorrect: 0, totalScore: 0, distances: [] },
+                shape: { trials: 0, exactCorrect: 0, totalScore: 0, distances: [] },
+                moved: { trials: 0, exactCorrect: 0, totalScore: 0, distances: [] }
+            }
+        };
+
+        // recent bias history for simple trail visualization
+        let recentBiases = [];
+        // track the maximum observed absolute bias to scale the visualization
+        let maxObservedBias = 1.0;
+        
+        // Category difficulty weights
+        const DIFFICULTY_WEIGHTS = {
+            moved: 1,   // Easiest - binary, salient motion
+            color: 2,   // Medium - requires color discrimination
+            shape: 4    // Hardest - requires form recognition
+        };
+        
+        // Calculate proximity score based on distance from correct answer
+        function getProximityScore(distance, correctAnswer) {
+            if (distance === 0) return 1.0;
+            
+            // If answer is more than 50% off, return 0
+            const percentageOff = distance / correctAnswer;
+            if (percentageOff > 0.5) return 0;
+            
+            // Score decays with distance: 1.0 for correct, ~0.5 for off-by-1, ~0.25 for off-by-2
+            // Formula: 1 / (1 + distance^1.5)
+            return 1 / (1 + Math.pow(distance, 1.5));
+        }
+        
+        // Calculate weighted score for a response
+        function getWeightedScore(distance, category, correctAnswer) {
+            const proximityScore = getProximityScore(distance, correctAnswer);
+            const weight = DIFFICULTY_WEIGHTS[category];
+            return proximityScore * weight;
+        }
+        
+        // Calculate weighted d'prime across categories
+        function calculateWeightedDPrime(adjustedDPrime) {
+            let totalWeightedScore = 0;
+            let totalWeight = 0;
+            
+            for (const [category, data] of Object.entries(stats.byCategory)) {
+                if (data.trials > 0) {
+                    const categoryAccuracy = data.totalScore / data.trials;
+                    const weight = DIFFICULTY_WEIGHTS[category];
+                    totalWeightedScore += categoryAccuracy * weight * data.trials;
+                    totalWeight += weight * data.trials;
+                }
+            }
+            
+            if (totalWeight === 0) return adjustedDPrime;
+            
+            const weightedAccuracy = totalWeightedScore / totalWeight;
+            return adjustedDPrime * (1 + (weightedAccuracy - 0.5) * 0.5);
+        }
+        
+        // Settings
+        let settings = {
+            displayTime: 400,
+            answerTimeLimit: 3000,
+            activeCategories: {
+                color: true,
+                shape: true,
+                moved: true
+            },
+            fixedTotal: false,
+            totalItems: 18,
+            cognitiveLoadFactor: 0.05,
+            targetClusterChance: 0.7,
+            distractorClusters: 3
+        };
+        
+        // Calculate d'prime and bias with set-size adjustment
+        function calculateDPrime() {
+            if (stats.totalTrials < 1) return { dprime: 0, bias: 0, adjustedDPrime: 0, weightedDPrime: 0 };
+            // Use canonical SDT mapping where lure-containing trials are treated as
+            // 'noise' trials and lure-free trials as 'signal' trials. Use log-linear
+            // correction (Hautus) per denominator to avoid 0/1 rates.
+            const signalN = Math.max(0, stats.signalTrials || 0);
+            const noiseN = Math.max(0, stats.noiseTrials || 0);
+            const hits = stats.hits || 0;
+            const faCount = stats.falseAlarms || 0;
+
+            // If we don't yet have both signal and noise trials, fall back to safe defaults
+            const EPSN = 1e-6;
+            let hitRate, faRate;
+            if (signalN > 0) {
+                hitRate = (hits + 0.5) / (signalN + 1);
+            } else {
+                // fallback: estimate hitRate from overall correctness
+                hitRate = ((stats.hits || 0) + 0.5) / (Math.max(1, stats.totalTrials) + 1);
+            }
+
+            if (noiseN > 0) {
+                faRate = (faCount + 0.5) / (noiseN + 1);
+            } else {
+                // fallback: estimate faRate from overall incorrects
+                const incorrects = (stats.totalTrials || 0) - (stats.hits || 0);
+                faRate = (incorrects + 0.5) / (Math.max(1, stats.totalTrials) + 1);
+            }
+
+            // Clamp to avoid numerical extremes for inverse normal
+            const EPS = 1e-6;
+            hitRate = Math.max(EPS, Math.min(1 - EPS, hitRate));
+            faRate = Math.max(EPS, Math.min(1 - EPS, faRate));
+
+            // d' = z(H) - z(FA)
+            const zHit = normalInverse(hitRate);
+            const zFA = normalInverse(faRate);
+            const dprime = zHit - zFA;
+
+            // Bias (c) in SDT: -0.5 * (z(H) + z(FA))
+            const bias = -0.5 * (zHit + zFA);
+
+            // Apply set-size adjustment for cognitive load
+            const totalItems = settings.fixedTotal ? settings.totalItems : getTotalItemsForLevel();
+            const cognitiveLoadMultiplier = 1 + ((totalItems - 4) * settings.cognitiveLoadFactor);
+            const adjustedDPrime = dprime * cognitiveLoadMultiplier;
+
+            // Calculate weighted d'prime based on category performance
+            const weightedDPrime = calculateWeightedDPrime(adjustedDPrime);
+
+            return { dprime, bias, adjustedDPrime, weightedDPrime };
+        }
+        
+        // Approximate inverse normal distribution
+        function normalInverse(p) {
+            const a1 = -3.969683028665376e+01;
+            const a2 = 2.209460984245205e+02;
+            const a3 = -2.759285104469687e+02;
+            const a4 = 1.383577518672690e+02;
+            const a5 = -3.066479806614716e+01;
+            const a6 = 2.506628277459239e+00;
+            
+            const b1 = -5.447609879822406e+01;
+            const b2 = 1.615858368580409e+02;
+            const b3 = -1.556989798598866e+02;
+            const b4 = 6.680131188771972e+01;
+            const b5 = -1.328068155288572e+01;
+            
+            const c1 = -7.784894002430293e-03;
+            const c2 = -3.223964580411365e-01;
+            const c3 = -2.400758277161838e+00;
+            const c4 = -2.549732539343734e+00;
+            const c5 = 4.374664141464968e+00;
+            const c6 = 2.938163982698783e+00;
+            
+            const d1 = 7.784695709041462e-03;
+            const d2 = 3.224671290700398e-01;
+            const d3 = 2.445134137142996e+00;
+            const d4 = 3.754408661907416e+00;
+            
+            const pLow = 0.02425;
+            const pHigh = 1 - pLow;
+            
+            if (p < pLow) {
+                const q = Math.sqrt(-2 * Math.log(p));
+                return (((((c1*q+c2)*q+c3)*q+c4)*q+c5)*q+c6) / ((((d1*q+d2)*q+d3)*q+d4)*q+1);
+            } else if (p <= pHigh) {
+                const q = p - 0.5;
+                const r = q * q;
+                return (((((a1*r+a2)*r+a3)*r+a4)*r+a5)*r+a6)*q / (((((b1*r+b2)*r+b3)*r+b4)*r+b5)*r+1);
+            } else {
+                const q = Math.sqrt(-2 * Math.log(1 - p));
+                return -(((((c1*q+c2)*q+c3)*q+c4)*q+c5)*q+c6) / ((((d1*q+d2)*q+d3)*q+d4)*q+1);
+            }
+        }
+        
+        function updateMicroLevel() {
+            const { dprime, bias, adjustedDPrime, weightedDPrime } = calculateDPrime();
+            
+            // Calculate baseline: Prefer average of recorded sessionHistory (last sessions).
+            // If we don't yet have sessionHistory entries (early in use), provide a simple
+            // fallback estimate from recent performance so the baseline isn't 0.
+            let baseline;
+            if (sessionHistory.length > 0) {
+                baseline = sessionHistory.reduce((sum, val) => sum + val, 0) / sessionHistory.length;
+            } else {
+                // Estimate baseline from recent performance (use overall accuracy scaled)
+                // Use up to the first 15 trials to form a crude estimate so there's a number early.
+                const trialsAvailable = Math.max(1, Math.min(stats.totalTrials, 15));
+                if (stats.totalTrials > 0) {
+                    const accuracy = stats.hits / Math.max(1, stats.totalTrials);
+                    // Scale accuracy into a small baseline range. This is a coarse proxy.
+                    baseline = accuracy * 2.0; // rough mapping so baseline is > 0
+                } else {
+                    baseline = weightedDPrime;
+                }
+            }
+            
+            // Determine adjustment based on weighted d'prime
+            let adjustment = 0;
+            
+            if (stats.totalTrials >= 5) {
+                if (weightedDPrime > baseline && Math.abs(bias) < 0.5) {
+                    // Good performance, advance
+                    adjustment = 0.01 + (weightedDPrime - baseline) * 0.02;
+                    adjustment = Math.min(0.05, adjustment);
+                } else if (weightedDPrime < baseline * 0.7) {
+                    // Poor performance, regress
+                    adjustment = -0.05;
+                }
+                
+                microLevel += adjustment;
+                microLevel = Math.max(1.00, Math.min(9.99, microLevel));
+                microLevel = Math.round(microLevel * 100) / 100;
+                
+                // Update session history with weighted d'prime
+                if (stats.totalTrials % 10 === 0) {
+                    sessionHistory.push(weightedDPrime);
+                    if (sessionHistory.length > MAX_HISTORY) {
+                        sessionHistory.shift();
+                    }
+                }
+            }
+            
+            updateDisplay(dprime, bias, adjustedDPrime, weightedDPrime, baseline);
+        }
+        
+        function updateDisplay(dprime, bias, adjustedDPrime, weightedDPrime, baseline) {
+            // Update level and baseline displays
+            const levelValueEl = document.getElementById('level-value');
+            const baselineEl = document.getElementById('baseline-display');
+            if (levelValueEl) levelValueEl.textContent = microLevel.toFixed(2);
+            if (baselineEl) baselineEl.textContent = `A: ${baseline.toFixed(2)}`;
+            
+            // Update metrics
+            document.getElementById('current-dprime').textContent = `${dprime.toFixed(2)} → ${adjustedDPrime.toFixed(2)} → ${weightedDPrime.toFixed(2)}`;
+            document.getElementById('baseline-dprime').textContent = baseline.toFixed(2);
+            // Use canonical SDT bias (c) computed by calculateDPrime() — this uses
+            // lures as noise trials. Display it and avoid showing '-0.00'.
+            let sdBias = bias || 0;
+            if (Math.abs(sdBias) < 0.005) sdBias = 0;
+            document.getElementById('bias-value').textContent = sdBias.toFixed(2);
+            document.getElementById('trial-count').textContent = stats.totalTrials;
+            
+            // Update category breakdowns: show only partial (unweighted) points and avg distance
+            // Also compute the weightedPointsTotal (used as the single number shown top-right)
+            let weightedPointsTotal = 0;
+            for (const [category, data] of Object.entries(stats.byCategory)) {
+                const container = document.getElementById(`${category}-accuracy`);
+                if (!container) continue;
+
+                if (data.trials > 0) {
+                    const avgDistance = data.distances.reduce((a, b) => a + b, 0) / data.distances.length;
+                    const exact = data.exactCorrect || 0;
+                    const totalScore = data.totalScore || 0; // sum of proximity scores (1.0 for exact, <1 for near)
+                    const partial = Math.max(0, totalScore - exact);
+
+                    // Show exact counts, then the partial (close) points, then avg dist (lowercase 'avg dist')
+                    // use comma separators to match requested styling
+                    container.textContent = `${exact}/${data.trials} exact, ${partial.toFixed(2)} close, avg dist: ${avgDistance.toFixed(2)}`;
+
+                    // accumulate weighted total (weights: moved=1, color=2, shape=4)
+                    const weight = DIFFICULTY_WEIGHTS[category] || 1;
+                    weightedPointsTotal += totalScore * weight;
+                } else {
+                    container.textContent = '\u200B';
+                }
+            }
+
+            // Update top-right to show only the calculated weighted number
+            const scoreBox = document.getElementById('score');
+            if (scoreBox) {
+                scoreBox.textContent = weightedPointsTotal.toFixed(2);
+            }
+
+            // Display SDT denominators (signal/noise counts) in the debug title of the metrics box
+            const dprimeBox = document.getElementById('dprime-display');
+            if (dprimeBox) {
+                dprimeBox.title = `signalTrials: ${stats.signalTrials} | noiseTrials: ${stats.noiseTrials} | hits: ${stats.hits} | falseAlarms: ${stats.falseAlarms}`;
+            }
+            
+            // Update mini category stats (simple percent display) and tooltips
+            for (const [category, data] of Object.entries(stats.byCategory)) {
+                const miniId = category === 'moved' ? 'mini-moved' : `mini-${category}`;
+                const miniEl = document.getElementById(miniId);
+                if (!miniEl) continue;
+                if (data.trials > 0) {
+                    const proximityPercent = Math.round((data.totalScore / data.trials) * 100);
+                    const avgDistance = data.distances.length ? (data.distances.reduce((a, b) => a + b, 0) / data.distances.length) : 0;
+                    miniEl.textContent = `${proximityPercent}`;
+                    miniEl.title = `Avg dist: ${avgDistance.toFixed(2)} | ${data.exactCorrect}/${data.trials} exact`;
+                } else {
+                    miniEl.textContent = '\u200B';
+                    miniEl.title = '';
+                }
+            }
+
+            // Update unified bias marker (minimal styling) and recent-trail ticks
+            (function() {
+                const biasMarker = document.getElementById('bias-marker');
+                const track = document.querySelector('#bias-unified .bias-track');
+                if (!biasMarker || !track) return;
+
+                // Use the SDT bias (c) for visualization so it matches the displayed value
+                const currentBiasValue = sdBias;
+
+                // Track recent bias history (keep last N) and update observed max for scaling
+                const maxRecent = 6;
+                recentBiases.push(currentBiasValue);
+                if (recentBiases.length > maxRecent) recentBiases.shift();
+                // Update running max absolute bias to scale visual mapping
+                maxObservedBias = Math.max(maxObservedBias, Math.abs(currentBiasValue) || 1e-6);
+
+                // Remove old recent tick elements
+                track.querySelectorAll('.bias-recent').forEach(el => el.remove());
+
+                // Render recent ticks (older first, lower opacity)
+                const scale = Math.max(1e-6, maxObservedBias); // avoid division by zero
+                for (let i = 0; i < recentBiases.length; i++) {
+                    const b = recentBiases[i];
+                    const clamped = Math.max(-scale, Math.min(scale, b));
+                    const percent = 50 + (clamped / scale) * 50;
+                    const tick = document.createElement('div');
+                    tick.className = 'bias-recent';
+                    tick.style.left = percent + '%';
+                    tick.style.width = '2px';
+                    tick.style.height = '14px';
+
+                    const mag = Math.abs(clamped) / scale; // 0..1 scaled
+                    const posColor = '#0A84FF';
+                    const negColor = '#FF3B30';
+                    tick.style.background = clamped >= 0 ? posColor : negColor;
+
+                    const ageFactor = (i + 1) / recentBiases.length; // 0..1
+                    const opacity = 0.25 + 0.7 * (0.4 + 0.6 * mag) * ageFactor;
+                    tick.style.opacity = Math.min(1, Math.max(0.12, opacity)).toString();
+
+                    track.appendChild(tick);
+                }
+
+                // Map current bias to position across the track using observed scale
+                const clampedNow = Math.max(-scale, Math.min(scale, currentBiasValue));
+                const percentNow = 50 + (clampedNow / scale) * 50;
+                biasMarker.style.left = percentNow + '%';
+                biasMarker.style.width = '2px';
+                biasMarker.style.height = '14px';
+
+                const posColorNow = '#0A84FF';
+                const negColorNow = '#FF3B30';
+                biasMarker.style.background = clampedNow >= 0 ? posColorNow : negColorNow;
+                biasMarker.style.opacity = '1';
+                biasMarker.style.boxShadow = 'none';
+            })();
+            
+            const lureFreq = getLureFrequency();
+            document.getElementById('lure-freq').textContent = Math.round(lureFreq * 100) + '%';
+            
+            const totalItems = getTotalItemsForLevel();
+            document.getElementById('current-items').textContent = totalItems;
+            
+            const sophistication = getDistractorSophistication();
+            document.getElementById('ambiguity-range').textContent = `±${sophistication.ambiguityRange}`;
+        }
+        
+        function getLureFrequency() {
+            const decimal = microLevel % 1;
+            return 0.10 + (decimal * 0.15); // 10% at .00, 25% at .99
+        }
+        
+        function getDistractorSophistication() {
+            // Returns how sophisticated distractor clustering should be
+            // Higher level = more ambiguous clusters
+            const baseLevel = Math.floor(microLevel);
+            const decimal = microLevel % 1;
+            
+            // At higher levels, cluster sizes become more similar to answer
+            const ambiguityRange = 2 + Math.floor(baseLevel * 0.5); // 2 at level 1, up to 6 at level 9
+            
+            return {
+                ambiguityRange, // How close cluster sizes should be to answer
+                clusterTightness: decimal // How tightly clustered (higher = more similar sizes)
+            };
+        }
+        
+        function getTotalItemsForLevel() {
+            // Level determines total items shown
+            if (settings.fixedTotal) {
+                return settings.totalItems;
+            }
+            
+            const baseLevel = Math.floor(microLevel);
+            const decimal = microLevel % 1;
+            
+            // Level 1: 10-12 items, Level 9: 30-45 items
+            const minItems = 8 + (baseLevel * 2);
+            const maxItems = minItems + 2 + Math.floor(baseLevel * 1.5);
+            
+            const range = maxItems - minItems;
+            const items = minItems + Math.floor(decimal * range);
+            
+            return Math.max(10, items); // Minimum 10 items to ensure proper ambiguity
+        }
+        
+        // Settings panel controls
+        document.getElementById('settings-btn').addEventListener('click', () => {
+            isPaused = true;
+            if (isAnswering) {
+                // Save the current state
+                pausedState = {
+                    timeRemaining: settings.answerTimeLimit,
+                    questionArea: document.getElementById('question-area').innerHTML
+                };
+                clearTimeout(answerTimeout);
+            }
+            document.getElementById('settings-sidebar').classList.add('show');
+            document.getElementById('settings-overlay').classList.add('show');
+        });
+        
+        // Theme toggle
+        document.getElementById('theme-toggle').addEventListener('click', () => {
+            document.body.classList.toggle('light-mode');
+            const btn = document.getElementById('theme-toggle');
+            btn.textContent = document.body.classList.contains('light-mode') ? '☾' : '☀';
+        });
+        
+        document.getElementById('close-settings').addEventListener('click', () => {
+            document.getElementById('settings-sidebar').classList.remove('show');
+            document.getElementById('settings-overlay').classList.remove('show');
+            resumeGame();
+        });
+        
+        document.getElementById('settings-overlay').addEventListener('click', () => {
+            document.getElementById('settings-sidebar').classList.remove('show');
+            document.getElementById('settings-overlay').classList.remove('show');
+            resumeGame();
+        });
+        
+        function resumeGame() {
+            isPaused = false;
+            if (pausedState && isAnswering) {
+                // Restore the question and restart timer
+                answerTimeout = setTimeout(() => {
+                    if (isAnswering && !isPaused) {
+                        handleTimeout();
+                    }
+                }, settings.answerTimeLimit);
+                pausedState = null;
+            } else if (!isAnswering) {
+                // Start new round if not in middle of answering
+                generateRound();
+            }
+        }
+        
+        // Shapes slider (now for starting level)
+        const shapesSlider = document.getElementById('shapes-slider');
+        const shapesValue = document.getElementById('shapes-value');
+        shapesSlider.addEventListener('input', (e) => {
+            const value = parseInt(e.target.value);
+            microLevel = value / 100;
+            shapesValue.textContent = microLevel.toFixed(2);
+            const levelValueEl = document.getElementById('level-value');
+            if (levelValueEl) levelValueEl.textContent = microLevel.toFixed(2);
+        });
+        
+        // Display time slider
+        const displayTimeSlider = document.getElementById('display-time-slider');
+        const displayTimeValue = document.getElementById('display-time-value');
+        displayTimeSlider.addEventListener('input', (e) => {
+            settings.displayTime = parseInt(e.target.value);
+            displayTimeValue.textContent = settings.displayTime + 'ms';
+        });
+        
+        // Answer time slider
+        const answerTimeSlider = document.getElementById('answer-time-slider');
+        const answerTimeValue = document.getElementById('answer-time-value');
+        answerTimeSlider.addEventListener('input', (e) => {
+            settings.answerTimeLimit = parseInt(e.target.value);
+            answerTimeValue.textContent = (settings.answerTimeLimit / 1000).toFixed(1) + 's';
+        });
+        
+        // Category checkboxes
+        document.getElementById('category-color').addEventListener('change', (e) => {
+            settings.activeCategories.color = e.target.checked;
+        });
+        document.getElementById('category-shape').addEventListener('change', (e) => {
+            settings.activeCategories.shape = e.target.checked;
+        });
+        document.getElementById('category-movement').addEventListener('change', (e) => {
+            settings.activeCategories.moved = e.target.checked;
+        });
+        
+        // Fixed total toggle
+        document.getElementById('fixed-total').addEventListener('change', (e) => {
+            settings.fixedTotal = e.target.checked;
+            document.getElementById('total-items-slider').disabled = !e.target.checked;
+        });
+        
+        // Total items slider
+        const totalItemsSlider = document.getElementById('total-items-slider');
+        const totalItemsValue = document.getElementById('total-items-value');
+        totalItemsSlider.addEventListener('input', (e) => {
+            settings.totalItems = parseInt(e.target.value);
+            totalItemsValue.textContent = settings.totalItems;
+        });
+        
+        // Advanced toggle
+        document.getElementById('advanced-toggle').addEventListener('click', () => {
+            const content = document.getElementById('advanced-content');
+            const button = document.getElementById('advanced-toggle');
+            content.classList.toggle('show');
+            button.textContent = content.classList.contains('show') 
+                ? '▲ Advanced: Distribution & Algorithms'
+                : '▼ Advanced: Distribution & Algorithms';
+        });
+        
+        // Cognitive load factor
+        const loadFactorSlider = document.getElementById('load-factor-slider');
+        const loadFactorValue = document.getElementById('load-factor-value');
+        loadFactorSlider.addEventListener('input', (e) => {
+            settings.cognitiveLoadFactor = parseInt(e.target.value) / 1000;
+            loadFactorValue.textContent = settings.cognitiveLoadFactor.toFixed(3);
+        });
+        
+        // Target clustering
+        const targetClusterSlider = document.getElementById('target-cluster-slider');
+        const targetClusterValue = document.getElementById('target-cluster-value');
+        targetClusterSlider.addEventListener('input', (e) => {
+            settings.targetClusterChance = parseInt(e.target.value) / 100;
+            targetClusterValue.textContent = parseInt(e.target.value) + '%';
+        });
+        
+        // Distractor clusters
+        const distractorClustersSlider = document.getElementById('distractor-clusters-slider');
+        const distractorClustersValue = document.getElementById('distractor-clusters-value');
+        distractorClustersSlider.addEventListener('input', (e) => {
+            settings.distractorClusters = parseInt(e.target.value);
+            distractorClustersValue.textContent = settings.distractorClusters;
+        });
+        
+        function createSVGShape(type, color, size, filled = false) {
+            const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+            svg.setAttribute('width', size);
+            svg.setAttribute('height', size);
+            svg.style.display = 'block';
+            
+            const strokeWidth = 3;
+            const fillColor = filled ? 'white' : 'none';
+            const strokeColor = filled ? 'white' : color;
+            
+            switch(type) {
+                case 'square':
+                    const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+                    rect.setAttribute('x', strokeWidth/2);
+                    rect.setAttribute('y', strokeWidth/2);
+                    rect.setAttribute('width', size - strokeWidth);
+                    rect.setAttribute('height', size - strokeWidth);
+                    rect.setAttribute('fill', fillColor);
+                    rect.setAttribute('stroke', strokeColor);
+                    rect.setAttribute('stroke-width', strokeWidth);
+                    svg.appendChild(rect);
+                    break;
+                    
+                case 'circle':
+                    const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+                    circle.setAttribute('cx', size/2);
+                    circle.setAttribute('cy', size/2);
+                    circle.setAttribute('r', (size - strokeWidth)/2);
+                    circle.setAttribute('fill', fillColor);
+                    circle.setAttribute('stroke', strokeColor);
+                    circle.setAttribute('stroke-width', strokeWidth);
+                    svg.appendChild(circle);
+                    break;
+                    
+                case 'triangle':
+                    const triangle = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
+                    const h = size * Math.sqrt(3) / 2;
+                    const points = `${size/2},${strokeWidth} ${size - strokeWidth},${h - strokeWidth/2} ${strokeWidth},${h - strokeWidth/2}`;
+                    triangle.setAttribute('points', points);
+                    triangle.setAttribute('fill', fillColor);
+                    triangle.setAttribute('stroke', strokeColor);
+                    triangle.setAttribute('stroke-width', strokeWidth);
+                    svg.setAttribute('height', h);
+                    svg.appendChild(triangle);
+                    break;
+                    
+                case 'hexagon':
+                    const hexagon = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
+                    const angle = Math.PI / 3;
+                    const radius = (size - strokeWidth) / 2;
+                    const cx = size / 2;
+                    const cy = size / 2;
+                    const hexPoints = [];
+                    for (let i = 0; i < 6; i++) {
+                        const x = cx + radius * Math.cos(angle * i - Math.PI / 2);
+                        const y = cy + radius * Math.sin(angle * i - Math.PI / 2);
+                        hexPoints.push(`${x},${y}`);
+                    }
+                    hexagon.setAttribute('points', hexPoints.join(' '));
+                    hexagon.setAttribute('fill', fillColor);
+                    hexagon.setAttribute('stroke', strokeColor);
+                    hexagon.setAttribute('stroke-width', strokeWidth);
+                    svg.appendChild(hexagon);
+                    break;
+            }
+            
+            return svg;
+        }
+        
+        function drawShape(type, color, x, y, size) {
+            const container = document.createElement('div');
+            container.className = 'shape';
+            container.style.left = x + 'px';
+            container.style.top = y + 'px';
+            
+            const svg = createSVGShape(type, color, size, false);
+            container.appendChild(svg);
+            
+            return container;
+        }
+        
+        function createQuestionIcon(type, value) {
+            const container = document.createElement('div');
+            container.className = 'question-content';
+            
+            if (type === 'shape') {
+                const size = value === 'triangle' ? 213 : 160;
+                const shapeContainer = document.createElement('div');
+                shapeContainer.style.position = 'relative';
+                shapeContainer.style.display = 'inline-block';
+                
+                const svg = createSVGShape(value, 'white', size, true);
+                shapeContainer.appendChild(svg);
+                
+                const text = document.createElement('div');
+                text.textContent = value;
+                text.style.position = 'absolute';
+                text.style.color = '#000';
+                text.style.fontWeight = 'bold';
+                text.style.pointerEvents = 'none';
+                
+                if (value === 'triangle') {
+                    text.style.top = '65%';
+                    text.style.left = '50%';
+                    text.style.transform = 'translate(-50%, -50%)';
+                    text.style.fontSize = '28px';
+                } else {
+                    text.style.top = '50%';
+                    text.style.left = '50%';
+                    text.style.transform = 'translate(-50%, -50%)';
+                    text.style.fontSize = '28px';
+                }
+                
+                shapeContainer.appendChild(text);
+                
+                container.appendChild(shapeContainer);
+            } else if (type === 'color') {
+                const text = document.createElement('div');
+                text.textContent = value.charAt(0).toUpperCase() + value.slice(1);
+                text.style.color = value;
+                text.style.fontSize = '64px';
+                text.style.fontWeight = 'bold';
+                container.appendChild(text);
+            } else if (type === 'moved') {
+                const text = document.createElement('div');
+                text.textContent = 'Movement';
+                text.style.fontSize = '64px';
+                text.style.color = 'white';
+                text.style.fontWeight = 'bold';
+                container.appendChild(text);
+            }
+            
+            const questionMark = document.createElement('div');
+            questionMark.textContent = '?';
+            questionMark.style.fontSize = '64px';
+            questionMark.style.color = 'white';
+            container.appendChild(questionMark);
+            
+            return container;
+        }
+        
+        function checkCollision(x, y, size, positions, minDistance) {
+            for (let pos of positions) {
+                const dist = Math.sqrt(Math.pow(x - pos.x, 2) + Math.pow(y - pos.y, 2));
+                if (dist < minDistance) {
+                    return true;
+                }
+            }
+            return false;
+        }
+        
+        function getCanvasDimensions() {
+            // Account for UI elements
+            // Keep only a top margin so shapes don't overlap the top UI;
+            // remove left/right margins so shapes can spawn under side panels.
+            const topMargin = 120; // Reserve space for top bar UI
+            const bottomMargin = 140; // Answer area (keep space at bottom)
+            const leftMargin = 0; // allow spawning under left UI
+            const rightMargin = 0; // allow spawning under right UI
+            
+            const width = Math.max(400, window.innerWidth - leftMargin - rightMargin);
+            const height = Math.max(300, window.innerHeight - topMargin - bottomMargin);
+            
+            return { width, height, topMargin, leftMargin };
+        }
+        
+        function updateCanvasSize() {
+            const canvasArea = document.getElementById('canvas-area');
+            const dims = getCanvasDimensions();
+            canvasArea.style.width = dims.width + 'px';
+            canvasArea.style.height = dims.height + 'px';
+            canvasArea.style.top = dims.topMargin + 'px';
+            canvasArea.style.left = dims.leftMargin + 'px';
+        }
+        
+        function generateRound() {
+            if (isPaused) {
+                return; // Don't start if paused
+            }
+            
+            updateCanvasSize();
+            const canvasArea = document.getElementById('canvas-area');
+            canvasArea.innerHTML = '';
+            
+            const dims = getCanvasDimensions();
+            const canvasWidth = dims.width;
+            const canvasHeight = dims.height;
+            
+            // Determine number of shapes based on level
+            const numShapes = getTotalItemsForLevel();
+            
+            // Answer is ALWAYS uniformly random from 1-9
+            const answer = Math.floor(Math.random() * 9) + 1;
+            
+            // Ensure we have enough space for answer + meaningful distractors
+            if (numShapes < answer + 2) {
+                // Skip this round if not enough items, regenerate
+                setTimeout(generateRound, 100);
+                return;
+            }
+            
+            // Pick category and target value (only from active categories)
+            const activeCategories = categories.filter(cat => {
+                if (cat === 'color') return settings.activeCategories.color;
+                if (cat === 'shape') return settings.activeCategories.shape;
+                if (cat === 'moved') return settings.activeCategories.moved;
+                return false;
+            });
+            
+            if (activeCategories.length === 0) {
+                settings.activeCategories.color = true;
+                settings.activeCategories.shape = true;
+                settings.activeCategories.moved = true;
+                activeCategories.push(...categories);
+            }
+            
+            const category = activeCategories[Math.floor(Math.random() * activeCategories.length)];
+            let targetValue, targetProperty;
+            
+            if (category === 'color') {
+                targetValue = colors[Math.floor(Math.random() * colors.length)];
+                targetProperty = 'color';
+            } else if (category === 'shape') {
+                targetValue = shapes[Math.floor(Math.random() * shapes.length)];
+                targetProperty = 'shapeType';
+            } else {
+                targetValue = true;
+                targetProperty = 'moved';
+            }
+            
+            currentRound.targetCategory = category;
+            currentRound.targetValue = category === 'moved' ? 'moved' : targetValue;
+            currentRound.correctAnswer = answer;
+            currentRound.items = [];
+            
+            const size = 50;
+            const moveDistance = 60;
+            const positions = [];
+            const minDistance = 65; // Prevent overlaps
+            
+            // Calculate lure frequency based on micro-level
+            const lureFreq = getLureFrequency();
+            
+            // Generate target shapes (answer count) with configurable clustering
+            let targetShapeType = null;
+            let targetColor = null;
+            
+            // Use settings for clustering chance
+            if (Math.random() < settings.targetClusterChance) {
+                if (category !== 'shape') {
+                    targetShapeType = shapes[Math.floor(Math.random() * shapes.length)];
+                }
+                if (category !== 'color') {
+                    targetColor = colors[Math.floor(Math.random() * colors.length)];
+                }
+            }
+            
+            for (let i = 0; i < answer; i++) {
+                let x, y, finalX, finalY;
+                let attempts = 0;
+                const maxAttempts = 200;
+                let validPosition = false;
+                
+                while (!validPosition && attempts < maxAttempts) {
+                    x = Math.random() * (canvasWidth - size);
+                    y = Math.random() * (canvasHeight - size);
+                    
+                    // Calculate potential final position if this shape moves
+                    const angle = Math.random() * Math.PI * 2;
+                    const potentialFinalX = x + Math.cos(angle) * moveDistance;
+                    const potentialFinalY = y + Math.sin(angle) * moveDistance;
+                    
+                    // Check if both start and potential end positions are valid
+                    const startValid = !checkCollision(x, y, size, positions, minDistance) &&
+                                      x >= 0 && x <= canvasWidth - size &&
+                                      y >= 0 && y <= canvasHeight - size;
+                    const endValid = potentialFinalX >= 0 && potentialFinalX <= canvasWidth - size &&
+                                    potentialFinalY >= 0 && potentialFinalY <= canvasHeight - size &&
+                                    !checkCollision(potentialFinalX, potentialFinalY, size, positions, minDistance);
+                    
+                    if (startValid && endValid) {
+                        validPosition = true;
+                        finalX = potentialFinalX;
+                        finalY = potentialFinalY;
+                    }
+                    
+                    attempts++;
+                }
+                
+                if (attempts >= maxAttempts) continue;
+                
+                positions.push({x, y});
+                
+                let color, shapeType, willMove;
+                
+                if (category === 'color') {
+                    color = targetValue;
+                    shapeType = targetShapeType || shapes[Math.floor(Math.random() * shapes.length)];
+                    willMove = Math.random() > 0.5;
+                } else if (category === 'shape') {
+                    color = targetColor || colors[Math.floor(Math.random() * colors.length)];
+                    shapeType = targetValue;
+                    willMove = Math.random() > 0.5;
+                } else {
+                    color = targetColor || colors[Math.floor(Math.random() * colors.length)];
+                    shapeType = targetShapeType || shapes[Math.floor(Math.random() * shapes.length)];
+                    willMove = true;
+                }
+                
+                if (!willMove) {
+                    finalX = x;
+                    finalY = y;
+                }
+                
+                currentRound.items.push({color, shapeType, moved: willMove, x: finalX, y: finalY, size});
+                
+                const shape = drawShape(shapeType, color, x, y, size);
+                canvasArea.appendChild(shape);
+                
+                if (willMove) {
+                    positions.push({x: finalX, y: finalY}); // Reserve final position too
+                    setTimeout(() => {
+                        shape.style.left = finalX + 'px';
+                        shape.style.top = finalY + 'px';
+                    }, 50);
+                }
+            }
+            
+            // Generate distractor shapes with clustering based on difficulty level
+            const distractorCount = numShapes - answer;
+            const sophistication = getDistractorSophistication();
+            
+            // Use settings for number of clusters
+            const numClusters = Math.min(settings.distractorClusters, Math.max(2, Math.floor(distractorCount / 2)));
+            const clusterSizes = [];
+            let remaining = distractorCount;
+            
+            // Create cluster sizes based on sophistication
+            // Higher sophistication = clusters more similar to answer count
+            for (let i = 0; i < numClusters; i++) {
+                if (i === numClusters - 1) {
+                    clusterSizes.push(remaining);
+                } else {
+                    // Size clusters within range of the answer based on sophistication
+                    const minSize = Math.max(1, answer - sophistication.ambiguityRange);
+                    const maxSize = Math.min(
+                        remaining - (numClusters - i - 1), 
+                        answer + sophistication.ambiguityRange
+                    );
+                    
+                    // Tightness affects how close to answer the clusters tend to be
+                    let size;
+                    if (Math.random() < sophistication.clusterTightness) {
+                        // Tight clustering: close to answer
+                        const mid = (minSize + maxSize) / 2;
+                        const range = (maxSize - minSize) * 0.3;
+                        size = Math.floor(mid + (Math.random() * range * 2 - range));
+                    } else {
+                        // Loose clustering: anywhere in range
+                        size = Math.floor(Math.random() * (maxSize - minSize + 1)) + minSize;
+                    }
+                    
+                    clusterSizes.push(Math.max(1, Math.min(remaining - (numClusters - i - 1), size)));
+                    remaining -= clusterSizes[clusterSizes.length - 1];
+                }
+            }
+            
+            // Shuffle cluster sizes to avoid patterns
+            for (let i = clusterSizes.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [clusterSizes[i], clusterSizes[j]] = [clusterSizes[j], clusterSizes[i]];
+            }
+            
+            // Create property pools for each cluster
+            let distractorProperties = [];
+            
+            if (category === 'color') {
+                const otherColors = colors.filter(c => c !== targetValue);
+                // Assign each cluster a different non-target color
+                for (let i = 0; i < clusterSizes.length; i++) {
+                    const clusterColor = otherColors[i % otherColors.length];
+                    for (let j = 0; j < clusterSizes[i]; j++) {
+                        distractorProperties.push({
+                            color: clusterColor,
+                            shapeType: shapes[Math.floor(Math.random() * shapes.length)],
+                            willMove: Math.random() > 0.5
+                        });
+                    }
+                }
+            } else if (category === 'shape') {
+                const otherShapes = shapes.filter(s => s !== targetValue);
+                // Assign each cluster a different non-target shape
+                for (let i = 0; i < clusterSizes.length; i++) {
+                    const clusterShape = otherShapes[i % otherShapes.length];
+                    for (let j = 0; j < clusterSizes[i]; j++) {
+                        distractorProperties.push({
+                            color: colors[Math.floor(Math.random() * colors.length)],
+                            shapeType: clusterShape,
+                            willMove: Math.random() > 0.5
+                        });
+                    }
+                }
+            } else { // moved
+                // For movement, cluster by shape or color
+                const clusterByColor = Math.random() > 0.5;
+                if (clusterByColor) {
+                    for (let i = 0; i < clusterSizes.length; i++) {
+                        const clusterColor = colors[i % colors.length];
+                        for (let j = 0; j < clusterSizes[i]; j++) {
+                            distractorProperties.push({
+                                color: clusterColor,
+                                shapeType: shapes[Math.floor(Math.random() * shapes.length)],
+                                willMove: false
+                            });
+                        }
+                    }
+                } else {
+                    for (let i = 0; i < clusterSizes.length; i++) {
+                        const clusterShape = shapes[i % shapes.length];
+                        for (let j = 0; j < clusterSizes[i]; j++) {
+                            distractorProperties.push({
+                                color: colors[Math.floor(Math.random() * colors.length)],
+                                shapeType: clusterShape,
+                                willMove: false
+                            });
+                        }
+                    }
+                }
+            }
+            
+            // Apply lures to some distractors
+            // Apply lures to some distractors
+            // Track whether this round includes any lure (used to mark noise trials)
+            let roundHasLure = false;
+            for (let i = 0; i < distractorProperties.length; i++) {
+                const isLure = Math.random() < lureFreq;
+                distractorProperties[i].isLure = false;
+                if (isLure) {
+                    roundHasLure = true;
+                    distractorProperties[i].isLure = true;
+                    if (category === 'color') {
+                        const targetIdx = colors.indexOf(targetValue);
+                        const lureOptions = colors.filter((c, idx) => Math.abs(idx - targetIdx) <= 1 && c !== targetValue);
+                        if (lureOptions.length > 0) {
+                            distractorProperties[i].color = lureOptions[Math.floor(Math.random() * lureOptions.length)];
+                        }
+                    } else if (category === 'shape') {
+                        const targetIdx = shapes.indexOf(targetValue);
+                        const lureOptions = shapes.filter((s, idx) => Math.abs(idx - targetIdx) <= 1 && s !== targetValue);
+                        if (lureOptions.length > 0) {
+                            distractorProperties[i].shapeType = lureOptions[Math.floor(Math.random() * lureOptions.length)];
+                        }
+                    }
+                }
+            }
+            
+            // Place all distractor shapes
+            for (let i = 0; i < distractorProperties.length; i++) {
+                let x, y, finalX, finalY;
+                let attempts = 0;
+                const maxAttempts = 200;
+                let validPosition = false;
+                
+                while (!validPosition && attempts < maxAttempts) {
+                    x = Math.random() * (canvasWidth - size);
+                    y = Math.random() * (canvasHeight - size);
+                    
+                    // Calculate potential final position if this shape moves
+                    const angle = Math.random() * Math.PI * 2;
+                    const potentialFinalX = x + Math.cos(angle) * moveDistance;
+                    const potentialFinalY = y + Math.sin(angle) * moveDistance;
+                    
+                    // Check if both start and potential end positions are valid
+                    const startValid = !checkCollision(x, y, size, positions, minDistance) &&
+                                      x >= 0 && x <= canvasWidth - size &&
+                                      y >= 0 && y <= canvasHeight - size;
+                    const endValid = potentialFinalX >= 0 && potentialFinalX <= canvasWidth - size &&
+                                    potentialFinalY >= 0 && potentialFinalY <= canvasHeight - size &&
+                                    !checkCollision(potentialFinalX, potentialFinalY, size, positions, minDistance);
+                    
+                    if (startValid && endValid) {
+                        validPosition = true;
+                        finalX = potentialFinalX;
+                        finalY = potentialFinalY;
+                    }
+                    
+                    attempts++;
+                }
+                
+                if (attempts >= maxAttempts) continue;
+                
+                positions.push({x, y});
+                
+                const { color, shapeType, willMove } = distractorProperties[i];
+                
+                if (!willMove) {
+                    finalX = x;
+                    finalY = y;
+                }
+                
+                currentRound.items.push({color, shapeType, moved: willMove, x: finalX, y: finalY, size});
+                
+                const shape = drawShape(shapeType, color, x, y, size);
+                canvasArea.appendChild(shape);
+                
+                if (willMove) {
+                    positions.push({x: finalX, y: finalY}); // Reserve final position too
+                    setTimeout(() => {
+                        shape.style.left = finalX + 'px';
+                        shape.style.top = finalY + 'px';
+                    }, 50);
+                }
+            }
+
+            // Mark if the round had lures
+            currentRound.hasLure = !!roundHasLure;
+
+            // Increment global signal/noise trial counters based on presence of lures
+            if (currentRound.hasLure) {
+                stats.noiseTrials = (stats.noiseTrials || 0) + 1;
+            } else {
+                stats.signalTrials = (stats.signalTrials || 0) + 1;
+            }
+            
+            setTimeout(() => {
+                if (!isPaused) {
+                    canvasArea.innerHTML = '';
+                    askQuestion();
+                }
+            }, settings.displayTime);
+        }
+        
+        function askQuestion() {
+            if (isPaused) return;
+            
+            const questionArea = document.getElementById('question-area');
+            questionArea.innerHTML = '';
+            
+            if (currentRound.targetCategory === 'color') {
+                questionArea.appendChild(createQuestionIcon('color', currentRound.targetValue));
+            } else if (currentRound.targetCategory === 'shape') {
+                questionArea.appendChild(createQuestionIcon('shape', currentRound.targetValue));
+            } else if (currentRound.targetCategory === 'moved') {
+                questionArea.appendChild(createQuestionIcon('moved', ''));
+            }
+            
+            isAnswering = true;
+            
+            answerTimeout = setTimeout(() => {
+                if (isAnswering && !isPaused) {
+                    handleTimeout();
+                }
+            }, settings.answerTimeLimit);
+        }
+        
+        function handleTimeout() {
+            isAnswering = false;
+            const feedback = document.getElementById('feedback');
+            const answerArea = document.getElementById('answer-area');
+            
+            // Don't track timeouts - just show feedback
+            feedback.className = 'feedback-overlay timeout show';
+            answerArea.innerHTML = `<span style="color: #0f0;">${currentRound.correctAnswer}</span>`;
+            
+            setTimeout(() => {
+                feedback.className = 'feedback-overlay';
+                answerArea.innerHTML = '';
+                document.getElementById('question-area').innerHTML = '';
+                nextRound();
+            }, 1500);
+        }
+        
+        function checkAnswer(answer) {
+            if (!isAnswering || isPaused) return;
+            isAnswering = false;
+            clearTimeout(answerTimeout);
+            
+            const feedback = document.getElementById('feedback');
+            const answerArea = document.getElementById('answer-area');
+            const correct = answer === currentRound.correctAnswer;
+            const distance = Math.abs(answer - currentRound.correctAnswer);
+            const category = currentRound.targetCategory;
+            
+            // Update signal detection stats using lure-based signal/noise mapping
+            if (currentRound.hasLure) {
+                // noise trial
+                if (correct) {
+                    stats.correctRejections++;
+                    exactCorrect++;
+                } else {
+                    stats.falseAlarms++;
+                }
+            } else {
+                // signal trial
+                if (correct) {
+                    stats.hits++;
+                    exactCorrect++;
+                } else {
+                    stats.misses++;
+                }
+            }
+
+            // Track signed error for bias (response - correct)
+            stats.signedErrorSum = (stats.signedErrorSum || 0) + (answer - currentRound.correctAnswer);
+            stats.totalTrials++;
+            
+            // Track by category with weighted scoring
+            stats.byCategory[category].trials++;
+            stats.byCategory[category].distances.push(distance);
+            const proximityScore = getProximityScore(distance, currentRound.correctAnswer);
+            stats.byCategory[category].totalScore += proximityScore;
+            
+            if (correct) {
+                stats.byCategory[category].exactCorrect++;
+                score++;
+            }
+            
+            if (correct) {
+                feedback.className = 'feedback-overlay correct show';
+                answerArea.innerHTML = `<span style="color: #0f0;">${answer}</span>`;
+            } else {
+                feedback.className = 'feedback-overlay incorrect show';
+                answerArea.innerHTML = `<span style="color: #f00; text-decoration: line-through;">${answer}</span> <span style="color: #0f0; margin-left: 40px;">${currentRound.correctAnswer}</span>`;
+            }
+            
+            document.getElementById('score').textContent = `Exact: ${exactCorrect}`;
+            
+            updateMicroLevel();
+            
+            setTimeout(() => {
+                feedback.className = 'feedback-overlay';
+                answerArea.innerHTML = '';
+                document.getElementById('question-area').innerHTML = '';
+                nextRound();
+            }, 1500);
+        }
+        
+        function nextRound() {
+            if (!isPaused) {
+                setTimeout(generateRound, 500);
+            }
+        }
+        
+        document.addEventListener('keydown', (e) => {
+            const key = parseInt(e.key);
+            if (key >= 1 && key <= 9 && isAnswering && !isPaused) {
+                checkAnswer(key);
+            }
+        });
+        
+        // Handle window resize
+        window.addEventListener('resize', () => {
+            if (!isAnswering) {
+                updateCanvasSize();
+            }
+        });
+        
+        // Initialize canvas size and start the game
+        updateCanvasSize();
+        updateDisplay(0, 0, 0, 0, 0); // Initialize display
+        setTimeout(generateRound, 1000);
+
+        // Toggle button for hiding/showing the right-side panels
+        (function() {
+            const hideBtn = document.getElementById('hide-panels-btn');
+            const dprimeDisplay = document.getElementById('dprime-display');
+            const categoryStats = document.querySelector('.category-stats');
+            let panelsHidden = false;
+
+            if (!hideBtn) return;
+
+            // Button remains to the right of the performance container; toggles visibility only
+            hideBtn.addEventListener('click', () => {
+                panelsHidden = !panelsHidden;
+                if (dprimeDisplay) dprimeDisplay.style.display = panelsHidden ? 'none' : '';
+                if (categoryStats) categoryStats.style.display = panelsHidden ? 'none' : '';
+                hideBtn.textContent = panelsHidden ? 'Show Panels' : 'Hide Panels';
+            });
+        })();
+    </script>
+</body>
+</html>
